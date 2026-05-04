@@ -1,0 +1,13 @@
+streamlit
+chromadb
+pandas
+python-dotenv
+google-generativeai
+pypdf
+python-docx
+fastapi
+uvicorn
+pydantic
+requests
+websockets
+ngrok
