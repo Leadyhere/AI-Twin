@@ -33,6 +33,7 @@ EMAIL = _clean_env_value("GMAIL_EMAIL")
 APP_PASSWORD = _clean_env_value("GMAIL_APP_PASSWORD")
 BRAIN_API_URL = os.getenv("BRAIN_API_URL", "http://127.0.0.1:8000/clone/process")
 PERSON_NAME = os.getenv("PERSON_NAME", "Suyash")
+AUTO_SEND_ENABLED = os.getenv("AUTO_SEND_ENABLED", "false").strip().lower() in {"1", "true", "yes"}
 
 
 def validate_config():
@@ -174,7 +175,7 @@ def listen_for_emails():
                 print("\nNEW EMAIL DETECTED")
                 print("From:", sender)
                 print("Subject:", subject)
-                print("Body:", body[:300])
+                print("Body: [redacted from logs]")
 
                 brain_response = send_to_brain(sender, subject, body)
 
@@ -189,7 +190,7 @@ def listen_for_emails():
                 status = brain_response.get("status")
                 draft = brain_response.get("clone_draft")
 
-                if status == "auto_sent" and draft:
+                if AUTO_SEND_ENABLED and status == "auto_sent" and draft:
                     to_email = extract_email_address(sender)
                     send_email_reply(to_email, subject, draft)
                 else:
