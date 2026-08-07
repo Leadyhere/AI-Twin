@@ -1,260 +1,88 @@
-# Pratirupa / Incarnation
+# Pratirupa / AI-Twin
 
-Pratirupa is a digital-clone prototype that combines persona memory retrieval, Gemini-generated replies, Gmail automation, and a Simli avatar demo.
+Pratirupa is a consent-based persona-memory and communication-drafting prototype. It ingests reference material into ChromaDB, retrieves relevant context, and asks Gemini to prepare a style-matched draft for human review.
 
-The project is organized around one idea: ingest a person's communication style and reference material into ChromaDB, retrieve the most relevant memories for a new message, and generate a reply that sounds like that person.
+> Use only material you own or have permission to process. Generated drafts should remain reviewable and clearly attributable to the real sender.
 
-## What This Project Includes
+## Included Components
 
-- `Mohini/app.py`: Streamlit tool to upload persona documents, chunk them, embed them with Gemini embeddings, and store them in ChromaDB.
-- `Mohini/brain_api.py`: FastAPI service that retrieves relevant memories and generates a structured clone reply.
-- `Mohini/gmail_listener.py`: Gmail polling script that sends unread emails to the brain API and auto-replies only when confidence is high.
-- `Mohini/vapi_server.py`: FastAPI endpoint shaped like a chat-completions API for voice/avatar integrations.
-- `Mohini/voice_ui.py`: Streamlit-based voice control UI for Vapi.
-- `Mohini/create-simli-agent/`: Next.js demo client for testing the avatar interaction flow with Simli and Daily.
-- `data/chroma_db/` and `Mohini/chroma_db/`: local persistent vector database files.
+- `Mohini/app.py` — Streamlit interface for ingesting documents and persona preferences
+- `Mohini/ingestion_utils.py` — text extraction, cleaning, chunking, and embeddings
+- `Mohini/brain_api.py` — FastAPI retrieval and draft-generation service
+- `Mohini/gmail_listener.py` — optional email polling and reply workflow
+- `Mohini/vapi_server.py` — chat-completions-style API adapter
+- `Mohini/voice_ui.py` — experimental voice interface
 
-## High-Level Flow
+The earlier README referenced a Simli/Next.js client that is not present in the current repository, so those setup instructions have been removed.
 
-1. Upload persona material such as emails, blogs, WhatsApp exports, PDFs, CSVs, or DOCX files.
-2. The ingester cleans text, chunks it, generates embeddings with Gemini, and stores it in ChromaDB.
-3. A new incoming email or prompt is sent to the clone brain.
-4. The brain retrieves the most relevant memory snippets for that person.
-5. Gemini generates a draft reply in that person's style.
-6. If confidence is high enough, the Gmail listener can send the reply automatically; otherwise it stays pending.
+## Architecture
 
-## Project Structure
-
-```text
-pratirupa/
-├─ README.md
-├─ data/
-│  └─ chroma_db/
-├─ Mohini/
-│  ├─ app.py
-│  ├─ brain_api.py
-│  ├─ gmail_listener.py
-│  ├─ ingestion_utils.py
-│  ├─ requirements.txt
-│  ├─ vapi_server.py
-│  ├─ voice_ui.py
-│  └─ create-simli-agent/
-│     ├─ app/
-│     ├─ public/
-│     ├─ media/
-│     └─ package.json
-└─ Solution Challenge 2026 - Incarnation.pdf
+```mermaid
+flowchart LR
+    Files[Approved reference files] --> Ingest[Streamlit ingestion]
+    Ingest --> Memory[Local ChromaDB]
+    Message[Incoming message] --> API[FastAPI brain]
+    Memory --> API
+    API --> Gemini[Gemini generation]
+    Gemini --> Draft[Human-reviewable draft]
 ```
 
-## Requirements
+## Setup
 
-- Python 3.10+
-- Node.js 18+
-- A Google AI Studio API key with access to Gemini models
-- A Gmail account with a Google App Password if you want email automation
-- Simli and Daily credentials if you want the avatar demo
-
-## Python Setup
-
-From the repository root:
-
-```powershell
-cd Mohini
+```bash
+git clone https://github.com/Leadyhere/AI-Twin.git
+cd AI-Twin/Mohini
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Create `Mohini/.env` with at least:
+On Windows, activate the environment with `.venv\Scripts\activate`.
 
-```env
-GOOGLE_API_KEY=your_google_api_key
-GENERATION_MODEL=gemini-2.5-flash
-PERSON_NAME=Your Name
-```
+## Run the Components
 
-For Gmail automation, also add:
-
-```env
-GMAIL_EMAIL=yourname@gmail.com
-GMAIL_APP_PASSWORD=your_16_character_app_password
-BRAIN_API_URL=http://127.0.0.1:8000/clone/process
-```
-
-## Load Persona Memory
-
-Run the Streamlit uploader:
-
-```powershell
-cd Mohini
+```bash
+# Ingestion UI
 streamlit run app.py
-```
 
-In the UI you can:
-
-- enter the person's name
-- upload `txt`, `csv`, `pdf`, or `docx` files
-- store persona Q&A answers
-- test retrieval from the stored memory
-
-The ingested chunks are stored in the `person_memory` Chroma collection.
-
-## Run The Brain API
-
-Start the clone reply service:
-
-```powershell
-cd Mohini
+# Draft-generation API
 uvicorn brain_api:app --reload
-```
 
-This exposes:
-
-- `POST /clone/process`
-
-Example request:
-
-```json
-{
-  "person_name": "Suyash",
-  "sender_name": "Alice",
-  "message_text": "Subject: Project update\n\nBody: Can you send the final deck by tonight?"
-}
-```
-
-Example response shape:
-
-```json
-{
-  "original_sender": "Alice",
-  "original_message": "Subject: Project update\n\nBody: Can you send the final deck by tonight?",
-  "clone_draft": "Thanks for the note. I'll send the final deck by tonight.",
-  "confidence_score": 92,
-  "reasoning": "The reply matches the user's concise professional tone.",
-  "status": "auto_sent"
-}
-```
-
-## Run Gmail Automation
-
-Once the brain API is running and your Gmail credentials are configured:
-
-```powershell
-cd Mohini
+# Optional email listener
 python gmail_listener.py
 ```
 
-Behavior:
+Automatic email sending is disabled by default in the professionalization branch. Enable it only in a controlled test account after reviewing the privacy and failure implications.
 
-- polls Gmail for unread emails every 90 seconds
-- sends each email to the brain API
-- auto-sends a reply only when `confidence_score >= 90`
-- leaves lower-confidence drafts pending for manual review
+## Configuration
 
-Important:
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_API_KEY` | Gemini API key |
+| `GENERATION_MODEL` | Generation model identifier |
+| `PERSON_NAME` | Persona identifier used for retrieval |
+| `GMAIL_EMAIL` | Optional test Gmail account |
+| `GMAIL_APP_PASSWORD` | Optional app password for the test account |
+| `BRAIN_API_URL` | URL of the local brain API |
+| `AUTO_SEND_ENABLED` | Explicit opt-in for automatic sending; defaults to `false` |
 
-- use a Gmail App Password, not your regular Gmail password
-- enable 2-Step Verification on the Gmail account first
+## Privacy and Safety
 
-## Run The Voice/Avatar Backend
+- Obtain permission before ingesting another person's messages or documents.
+- Keep `.env`, ChromaDB data, credentials, and exported communications out of Git.
+- Use draft-only operation by default.
+- Do not use model-reported confidence as the only authorization for external actions.
+- Avoid logging email bodies or other private message content.
 
-For the Vapi-style chat endpoint:
+## Roadmap
 
-```powershell
-cd Mohini
-uvicorn vapi_server:app --reload
-```
-
-This exposes:
-
-- `POST /chat/completions`
-
-The endpoint supports both normal JSON responses and a simple event-stream response when `stream: true` is sent.
-
-## Optional Streamlit Voice UI
-
-You can also run the Streamlit voice console:
-
-```powershell
-cd Mohini
-streamlit run voice_ui.py
-```
-
-Note:
-
-- `voice_ui.py` currently contains blank `PUBLIC_KEY` and `ASSISTANT_ID` placeholders in the embedded JavaScript
-- it will need those values filled in before the UI can start calls successfully
-
-## Simli Frontend Demo
-
-The avatar test client lives in `Mohini/create-simli-agent`.
-
-Install and run it:
-
-```powershell
-cd Mohini\create-simli-agent
-npm install
-npm run dev
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-The UI lets you:
-
-- enter Simli API settings
-- set the clone API URL
-- send a test prompt
-- join a Daily room and render the avatar feed
-
-Recommended `.env` values for the Next.js app:
-
-```env
-NEXT_PUBLIC_SIMLI_API_KEY=your_simli_api_key
-NEXT_PUBLIC_SIMLI_FACE_ID=your_face_id
-NEXT_PUBLIC_SIMLI_VOICE_ID=your_voice_id
-NEXT_PUBLIC_SIMLI_ROOM_URL=your_daily_room_url
-NEXT_PUBLIC_CLONE_API_URL=http://127.0.0.1:8000/chat/completions
-```
-
-## API And Data Notes
-
-- Embeddings are generated with `models/gemini-embedding-001`.
-- Reply generation defaults to `gemini-2.5-flash` unless `GENERATION_MODEL` overrides it.
-- Chroma uses a persistent local folder, so data survives restarts.
-- Persona data is filtered by `person_name` during retrieval.
-
-## Known Caveats
-
-- There are two Chroma database locations in the repo; keep your services pointed at the same one if you want shared memory.
-- `voice_ui.py` is not ready out of the box because the Vapi keys are still placeholders.
-- The Simli demo stores config in browser local storage and is mainly a test console, not a production UI.
-- `vapi_server.py` is tuned for short hackathon-style spoken answers rather than long-form email drafting.
-
-## Suggested Local Run Order
-
-1. Create `Mohini/.env`.
-2. Install Python dependencies.
-3. Run `streamlit run app.py` and ingest persona data.
-4. Run `uvicorn brain_api:app --reload`.
-5. Optionally run `python gmail_listener.py`.
-6. Optionally run `uvicorn vapi_server:app --reload`.
-7. Optionally run the Next.js client in `Mohini/create-simli-agent`.
-
-## Future Improvements
-
-- unify all services around one ChromaDB path
-- add authentication and approval workflow for pending drafts
-- persist generated drafts to a database
-- improve confidence scoring beyond model self-reporting
-- add tests for ingestion, retrieval, and API parsing
-- move secrets and runtime configuration into documented env templates
+- Replace app passwords with an OAuth-based email integration
+- Add authentication and per-user data isolation
+- Add deletion/export controls and a retention policy
+- Validate structured model output with stronger schemas
+- Add tests for parsing, retrieval filters, and draft approval
 
 ## License
 
-No explicit license is currently defined in the root project.
-# Incarnation
-# Incarnation
+No license has been selected yet.
